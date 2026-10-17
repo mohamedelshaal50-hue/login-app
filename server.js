@@ -25,7 +25,7 @@ app.get('/', (req, res) => {
 });
 
 // استقبال واستلام البيانات وحفظها في قاعدة البيانات السحابية
-app.post('/login', async (req, res) => {
+app.post(['/login', '/api/login'], async (req, res) => {
     try {
         const newEntry = new UserData({
             username: req.body.username,
