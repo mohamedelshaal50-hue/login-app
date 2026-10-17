@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>تسجيل الدخول</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; background: #f0f2f5; }
+        .card { width: min(100%, 360px); background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 0 14px rgba(0,0,0,.1); }
+        h1 { margin-top: 0; font-size: 1.5rem; }
+        form { display: flex; flex-direction: column; gap: 12px; }
+        label { font-weight: 600; }
+        input, button { width: 100%; padding: 11px; border: 1px solid #ccc; border-radius: 5px; font: inherit; }
+        button { cursor: pointer; }
+        .primary { color: white; background: #007bff; border: 0; }
+        .secondary { color: #075bb5; background: white; }
+        .notice { color: #425166; background: #eef5ff; padding: 11px; border-radius: 5px; line-height: 1.6; }
+        #status { min-height: 1.5em; line-height: 1.5; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <section id="auth-view">
+            <h1 id="heading">تسجيل الدخول</h1>
+            <p class="notice">أنشئ حسابًا أو سجّل الدخول. كلمة المرور تُخزّن بصيغة مجزّأة لهذا المشروع.</p>
+            <form id="auth-form">
+                <label for="username">اسم المستخدم</label>
+                <input id="username" name="username" type="text" minlength="3" maxlength="32"
+                       autocomplete="username" required>
+                <label for="password">كلمة المرور</label>
+                <input id="password" name="password" type="password" maxlength="128"
+                       autocomplete="current-password" required>
+                <button id="submit" class="primary" type="submit">تسجيل الدخول</button>
+                <button id="toggle-mode" class="secondary" type="button">إنشاء حساب جديد</button>
+            </form>
+            <p id="status" role="status" aria-live="polite"></p>
+        </section>
+        <section id="account-view" hidden>
+            <h1>تم تسجيل الدخول</h1>
+            <p id="welcome"></p>
+            <button id="logout" class="secondary" type="button">تسجيل الخروج</button>
+            <p id="account-status" role="status" aria-live="polite"></p>
+        </section>
+    </main>
+    <script>
+        const form = document.getElementById('auth-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const heading = document.getElementById('heading');
+        const submit = document.getElementById('submit');
+        const toggleMode = document.getElementById('toggle-mode');
+        const status = document.getElementById('status');
+        const authView = document.getElementById('auth-view');
+        const accountView = document.getElementById('account-view');
+        let mode = 'login';
+
+        function setMode(nextMode) {
+            mode = nextMode;
+            const registering = mode === 'register';
+            heading.textContent = registering ? 'إنشاء حساب' : 'تسجيل الدخول';
+            submit.textContent = registering ? 'إنشاء الحساب' : 'تسجيل الدخول';
+            toggleMode.textContent = registering ? 'لديّ حساب بالفعل' : 'إنشاء حساب جديد';
+            passwordInput.autocomplete = registering ? 'new-password' : 'current-password';
+            passwordInput.minLength = registering ? 12 : 1;
+            status.textContent = registering ? 'استخدم كلمة مرور من 12 حرفًا على الأقل.' : '';
+        }
+
+        function showAccount(username) {
+            authView.hidden = true;
+            accountView.hidden = false;
+            document.getElementById('welcome').textContent = 'مرحبًا، ' + username;
+        }
+
+        toggleMode.addEventListener('click', function () {
+            setMode(mode === 'login' ? 'register' : 'login');
+        });
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            status.textContent = 'جارٍ المعالجة…';
+            submit.disabled = true;
+
+            try {
+                const response = await fetch(
+                    mode === 'register' ? '/api/register' : '/api/login',
+                    {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: usernameInput.value,
+                            password: passwordInput.value
+                        })
+                    }
+                );
+                const result = await response.json();
+                passwordInput.value = '';
+
+                if (!response.ok) {
+                    status.textContent = result.error || 'تعذر إتمام الطلب.';
+                    return;
+                }
+                showAccount(result.username);
+            } catch {
+                passwordInput.value = '';
+                status.textContent = 'تعذر الاتصال بالخادم. حاول مرة أخرى.';
+            } finally {
+                submit.disabled = false;
+            }
+        });
+
+        document.getElementById('logout').addEventListener('click', async function () {
+            const message = document.getElementById('account-status');
+            message.textContent = 'جارٍ تسجيل الخروج…';
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                if (!response.ok) throw new Error('logout_failed');
+                accountView.hidden = true;
+                authView.hidden = false;
+                form.reset();
+                setMode('login');
+                message.textContent = '';
+            } catch {
+                message.textContent = 'تعذر تسجيل الخروج. حاول مرة أخرى.';
+            }
+        });
+
+        fetch('/api/me', { credentials: 'same-origin' })
+            .then(async function (response) {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then(function (result) {
+                if (result && result.authenticated) showAccount(result.username);
+            })
+            .catch(function () {});
+    </script>
+</body>
+</html>

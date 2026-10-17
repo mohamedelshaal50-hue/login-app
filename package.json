@@ -1,0 +1,19 @@
+{
+  "name": "haker-login",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arabic login and registration demo using Express and MongoDB",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20.19.0 <25"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0",
+    "mongodb": "^7.2.0",
+    "mongoose": "^9.11.2"
+  }
+}
